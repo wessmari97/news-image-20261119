@@ -1,99 +1,147 @@
-"""Draw the 19 November 2026 world-news poster, 1024x1024 PNG.
+"""Render the 19 November 2026 world-news poster as a 1024x1024 PNG.
 
-Run: python3 generate_image.py
-Writes entry.png next to this file. Deterministic: fixed text, fixed
-colours, fixed layout, no network, no timestamps, no randomness.
+The poster is data-driven: STORIES holds the day's six stories, and the
+renderer lays them out as a front page. Run it with:
+
+    python3 generate_image.py
+
+It writes entry.png in this directory. The output is deterministic:
+fixed stories, fixed palette, fixed geometry, no network access,
+no clock, no randomness.
 """
 from PIL import Image, ImageDraw, ImageFont
 
-W, H = 1024, 1024
-BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+CANVAS = (1024, 1024)
+NAVY = (15, 32, 64)
+INK = (17, 24, 39)
+GREY = (55, 65, 81)
+FAINT = (107, 114, 128)
+PAPER = (243, 244, 246)
+GOLD = (251, 191, 36)
+RED = (200, 16, 46)
+FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT_PLAIN = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+
+STORIES = [
+    {
+        "kicker": "1  •  JUSTICE — THE HAGUE",
+        "colour": (124, 58, 237),
+        "title": "World Court: Myanmar committed genocide against the Rohingya",
+        "text": "The International Court of Justice ruled 9–6 — the first time the "
+                "court has found a state guilty of genocide — over mass killings and "
+                "sexual violence against the Rohingya in Rakhine State.",
+        "big": True,
+    },
+    {
+        "kicker": "2  •  SUMMIT — SHENZHEN",
+        "colour": (14, 116, 144),
+        "title": "Trump, Xi and Putin hold first three-way summit",
+        "text": "The three leaders met in Shenzhen and issued a joint peace "
+                "declaration, pledging further talks on nuclear risks.",
+        "big": False,
+    },
+    {
+        "kicker": "3  •  UNREST — BANGLADESH",
+        "colour": (185, 28, 28),
+        "title": "Violence spreads across Bangladesh",
+        "text": "The interim leader's ancestral home was set on fire as unrest "
+                "hit 28 districts across the country.",
+        "big": False,
+    },
+    {
+        "kicker": "4  •  CLIMATE — ANTALYA",
+        "colour": (146, 64, 14),
+        "title": "COP31 ministers try to unblock talks",
+        "text": "Ministers met in informal session in Antalya to overcome "
+                "differences and agree a final text.",
+        "big": False,
+    },
+    {
+        "kicker": "5  •  ENERGY — HORMUZ",
+        "colour": (22, 101, 52),
+        "title": "Hormuz crisis threatens energy security",
+        "text": "Iran widened its Gulf attacks as the IEA called the crisis the "
+                "greatest threat ever seen to energy security.",
+        "big": False,
+    },
+]
+
+ALSO = [
+    "Senate rejects Iran war-powers resolution, 51–48  •  Anthropic prices IPO at $83",
+    "Gaza: Israeli forces cross ceasefire line  •  Van Gogh sells for $190.4m, a record",
+]
 
 
-def font(path, size):
-    return ImageFont.truetype(path, size)
+def load(size, bold=True):
+    return ImageFont.truetype(FONT_BOLD if bold else FONT_PLAIN, size)
 
 
-def wrap(draw, text, fnt, max_w):
-    words, lines, cur = text.split(), [], ""
-    for word in words:
-        trial = (cur + " " + word).strip()
-        if draw.textlength(trial, font=fnt) <= max_w:
-            cur = trial
+def flow(draw, text, face, width):
+    """Split text into lines that fit width, in the given font."""
+    out, current = [], ""
+    for word in text.split():
+        candidate = (current + " " + word).strip()
+        if draw.textlength(candidate, font=face) <= width:
+            current = candidate
         else:
-            if cur:
-                lines.append(cur)
-            cur = word
-    if cur:
-        lines.append(cur)
-    return lines
+            if current:
+                out.append(current)
+            current = word
+    if current:
+        out.append(current)
+    return out
 
 
-def panel(draw, x, y, w, h, tag, tag_col, headline, body, head_size=30):
+def card(draw, story, x, y, w, h):
     draw.rounded_rectangle([x, y, x + w, y + h], radius=14, fill="white",
-                           outline="#D9DEE6", width=2)
-    draw.rounded_rectangle([x, y, x + w, y + 34], radius=14, fill=tag_col)
-    draw.rectangle([x, y + 20, x + w, y + 34], fill=tag_col)
-    draw.text((x + 16, y + 7), tag, font=font(BOLD, 15), fill="white")
-    fnt = font(BOLD, head_size)
-    lines = wrap(draw, headline, fnt, w - 32)
-    yy = y + 46
-    for line in lines:
-        draw.text((x + 16, yy), line, font=fnt, fill="#111827")
-        yy += head_size + 6
-    fnt2 = font(REG, 19)
-    for line in wrap(draw, body, fnt2, w - 32):
-        draw.text((x + 16, yy), line, font=fnt2, fill="#374151")
-        yy += 25
+                           outline=(217, 222, 230), width=2)
+    draw.rounded_rectangle([x, y, x + w, y + 34], radius=14, fill=story["colour"])
+    draw.rectangle([x, y + 20, x + w, y + 34], fill=story["colour"])
+    draw.text((x + 16, y + 7), story["kicker"], font=load(15), fill="white")
+    size = 32 if story["big"] else 27
+    title_face = load(size)
+    cursor = y + 46
+    for line in flow(draw, story["title"], title_face, w - 32):
+        draw.text((x + 16, cursor), line, font=title_face, fill=INK)
+        cursor += size + 6
+    body_face = load(19, bold=False)
+    for line in flow(draw, story["text"], body_face, w - 32):
+        draw.text((x + 16, cursor), line, font=body_face, fill=GREY)
+        cursor += 25
 
 
-def main():
-    img = Image.new("RGB", (W, H), "#F3F4F6")
-    d = ImageDraw.Draw(img)
-    # Masthead
-    d.rectangle([0, 0, W, 148], fill="#0F2040")
-    d.rectangle([0, 148, W, 156], fill="#C8102E")
-    d.text((32, 22), "THE WORLD IN ONE DAY", font=font(BOLD, 54), fill="white")
-    d.text((32, 96), "THURSDAY, 19 NOVEMBER 2026  •  WORLD NEWS IN ONE IMAGE",
-           font=font(BOLD, 22), fill="#FBBF24")
-    d.text((32, 124), "Six stories that defined the day, from The Hague to Shenzhen",
-           font=font(REG, 18), fill="#CBD5E1")
-    # Hero: ICJ ruling
-    panel(d, 24, 176, 976, 196, "1  •  JUSTICE — THE HAGUE", "#7C3AED",
-          "World Court: Myanmar committed genocide against the Rohingya",
-          "The International Court of Justice ruled 9–6 — the first time the "
-          "court has found a state guilty of genocide — over mass killings and "
-          "sexual violence against the Rohingya in Rakhine State.", 32)
-    # Row 2
-    panel(d, 24, 392, 478, 218, "2  •  SUMMIT — SHENZHEN", "#0E7490",
-          "Trump, Xi and Putin hold first three-way summit",
-          "The three leaders met in Shenzhen and issued a joint peace "
-          "declaration, pledging further talks on nuclear risks.", 27)
-    panel(d, 522, 392, 478, 218, "3  •  UNREST — BANGLADESH", "#B91C1C",
-          "Violence spreads across Bangladesh",
-          "The interim leader's ancestral home was set on fire as unrest "
-          "hit 28 districts across the country.", 27)
-    # Row 3
-    panel(d, 24, 630, 478, 218, "4  •  CLIMATE — ANTALYA", "#92400E",
-          "COP31 ministers try to unblock talks",
-          "Ministers met in informal session in Antalya to overcome "
-          "differences and agree a final text.", 27)
-    panel(d, 522, 630, 478, 218, "5  •  ENERGY — HORMUZ", "#166534",
-          "Hormuz crisis threatens energy security",
-          "Iran widened its Gulf attacks as the IEA called the crisis the "
-          "greatest threat ever seen to energy security.", 27)
-    # Bottom strip
-    d.rounded_rectangle([24, 868, 1000, 972], radius=14, fill="#0F2040")
-    d.text((44, 880), "ALSO ON 19 NOVEMBER", font=font(BOLD, 17), fill="#FBBF24")
-    d.text((44, 908), "Senate rejects Iran war-powers resolution, 51–48  •  Anthropic prices IPO at $83",
-           font=font(REG, 17), fill="white")
-    d.text((44, 934), "Gaza: Israeli forces cross ceasefire line  •  Van Gogh sells for $190.4m, a record",
-           font=font(REG, 17), fill="white")
-    d.text((24, 984), "Drawn from reports published on 19 November 2026  •  make.fun — news-image-20261119",
-           font=font(REG, 15), fill="#6B7280")
-    img.save("entry.png", format="PNG", optimize=True)
+def header(draw):
+    draw.rectangle([0, 0, CANVAS[0], 148], fill=NAVY)
+    draw.rectangle([0, 148, CANVAS[0], 156], fill=RED)
+    draw.text((32, 22), "THE WORLD IN ONE DAY", font=load(54), fill="white")
+    draw.text((32, 96), "THURSDAY, 19 NOVEMBER 2026  •  WORLD NEWS IN ONE IMAGE",
+              font=load(22), fill=GOLD)
+    draw.text((32, 124), "Six stories that defined the day, from The Hague to Shenzhen",
+              font=load(18, bold=False), fill=(203, 213, 225))
+
+
+def footer(draw):
+    draw.rounded_rectangle([24, 868, 1000, 972], radius=14, fill=NAVY)
+    draw.text((44, 880), "ALSO ON 19 NOVEMBER", font=load(17), fill=GOLD)
+    for i, line in enumerate(ALSO):
+        draw.text((44, 908 + i * 26), line, font=load(17, bold=False), fill="white")
+    draw.text((24, 984), "Drawn from reports published on 19 November 2026  •  make.fun — news-image-20261119",
+              font=load(15, bold=False), fill=FAINT)
+
+
+def render():
+    image = Image.new("RGB", CANVAS, PAPER)
+    draw = ImageDraw.Draw(image)
+    header(draw)
+    lead = STORIES[0]
+    card(draw, lead, 24, 176, 976, 196)
+    for i, story in enumerate(STORIES[1:]):
+        col = i % 2
+        row = i // 2
+        card(draw, story, 24 + col * 498, 392 + row * 238, 478, 218)
+    footer(draw)
+    image.save("entry.png", format="PNG", optimize=True)
 
 
 if __name__ == "__main__":
-    main()
+    render()

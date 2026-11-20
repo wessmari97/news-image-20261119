@@ -15,7 +15,7 @@ One image summing up Thursday 19 November 2026 in world news, for make.fun's "Su
 - **Energy — Hormuz:** Iran widened its Gulf attacks as the IEA called the Hormuz crisis the greatest threat ever seen to energy security.
 - **Also:** the US Senate rejected the Iran war-powers resolution 51–48, Anthropic priced its IPO at $83, Israeli forces crossed the Gaza ceasefire line, and a Van Gogh sold for $190.4 million, a record for the artist.
 
-`generate_image.py` draws `entry.png` (1024×1024) from scratch, and `main.ts` (Node 22, standard library only) copies it to the output directory. The poster is laid out like a front page: a masthead naming the day, one large lead story, four smaller stories, and a strip of shorter items at the bottom, so a reader who missed the day can tell what happened from the image alone.
+`generate_image.py` draws `entry.png` (1024×1024) from scratch, and `main.ts` (Node 22, standard library only) copies it to the output directory. The poster is laid out like a front page: a masthead naming the day, one large lead story, four smaller stories, and a strip of shorter items at the bottom, so a reader who missed the day can tell what happened from the image alone. The drawing code is data-driven — the stories live in one list, and one renderer draws every card the same way — so adding or correcting a story means editing that list, not the layout code.
 
 ## Run it
 
